@@ -106,6 +106,7 @@ jobs:
           rust: stable
           cache-key: ${{ matrix.rust-special }} # 'minimal-deps' or empty/not defined
           with-llvm: ${{ matrix.name == 'macos' }}
+        if: ${{ matrix.rust-special != '-minimal-deps' }}
 
       - name: "Install Rust nightly (minimal deps)"
         uses: ./.github/composite/rust
