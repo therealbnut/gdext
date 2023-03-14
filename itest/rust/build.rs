@@ -55,6 +55,9 @@ fn collect_inputs() -> Vec<Input> {
 }
 
 fn main() {
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=../Cargo.lock");
+
     let inputs = collect_inputs();
     let methods = generate_rust_methods(&inputs);
 

@@ -14,6 +14,7 @@ mod special_cases;
 mod util;
 mod utilities_generator;
 mod watch;
+mod write_formatted;
 
 #[cfg(test)]
 mod tests;
@@ -32,7 +33,36 @@ use watch::StopWatch;
 use crate::util::{to_pascal_case, to_snake_case};
 use proc_macro2::{Ident, TokenStream};
 use quote::{quote, ToTokens};
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashSet,
+    fs,
+    path::{Path, PathBuf},
+};
+
+fn remove_old_files(directory: &Path, keep_files: &HashSet<&Path>) -> bool {
+    let dir_entries = fs::read_dir(directory).unwrap();
+    let mut keep_any = false;
+    for entry in dir_entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            let keep = remove_old_files(&path, keep_files);
+            keep_any = keep_any || keep;
+        } else if path.is_file() {
+            let keep = keep_files.contains(path.as_path());
+            if !keep {
+                eprintln!("removing old gen file: '{}'", path.display());
+                fs::remove_file(&path).expect("failed to remove old generated file");
+            }
+            keep_any = keep_any || keep;
+        } else {
+            panic!("unknown path type!");
+        }
+    }
+    if !keep_any {
+        fs::remove_dir(directory).expect("failed to remove directory");
+    }
+    keep_any
+}
 
 pub fn generate_sys_files(sys_gen_path: &Path) {
     let mut out_files = vec![];
@@ -47,9 +77,16 @@ pub fn generate_sys_files(sys_gen_path: &Path) {
     generate_sys_central_file(&api, &mut ctx, build_config, sys_gen_path, &mut out_files);
     watch.record("generate_central_file");
 
-    rustfmt_if_needed(out_files);
-    watch.record("rustfmt");
-    watch.write_stats_to(&sys_gen_path.join("codegen-stats.txt"));
+    let stats_path = sys_gen_path.join("codegen-stats.txt");
+    watch.write_stats_to(&stats_path);
+    out_files.push(stats_path);
+
+    out_files.push(sys_gen_path.join("gdextension_interface.rs"));
+
+    remove_old_files(
+        sys_gen_path,
+        &HashSet::from_iter(out_files.iter().map(PathBuf::as_path)),
+    );
 }
 
 pub fn generate_core_files(core_gen_path: &Path) {
@@ -88,34 +125,15 @@ pub fn generate_core_files(core_gen_path: &Path) {
     );
     watch.record("generate_builtin_class_files");
 
-    rustfmt_if_needed(out_files);
-    watch.record("rustfmt");
-    watch.write_stats_to(&core_gen_path.join("codegen-stats.txt"));
+    let stats_path = core_gen_path.join("codegen-stats.txt");
+    watch.write_stats_to(&stats_path);
+    out_files.push(stats_path);
+
+    remove_old_files(
+        core_gen_path,
+        &HashSet::from_iter(out_files.iter().map(PathBuf::as_path)),
+    );
 }
-
-// #[cfg(feature = "codegen-fmt")]
-fn rustfmt_if_needed(out_files: Vec<PathBuf>) {
-    println!("Format {} generated files...", out_files.len());
-
-    for files in out_files.chunks(20) {
-        let mut process = std::process::Command::new("rustfmt");
-        process.arg("--edition=2021");
-
-        println!("  Format {} files...", files.len());
-        for file in files {
-            process.arg(file);
-        }
-
-        process
-            .output()
-            .unwrap_or_else(|err| panic!("during godot-rust codegen, rustfmt failed:\n   {err}"));
-    }
-
-    println!("Rustfmt completed.");
-}
-//
-// #[cfg(not(feature = "codegen-fmt"))]
-// fn rustfmt_if_needed(_out_files: Vec<PathBuf>) {}
 
 // ----------------------------------------------------------------------------------------------------------------------------------------------
 // Shared utility types

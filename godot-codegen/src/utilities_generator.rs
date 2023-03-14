@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 
 use crate::api_parser::*;
 use crate::class_generator::make_utility_function_definition;
+use crate::write_formatted::write_formatted_if_needed;
 use crate::Context;
 
 pub(crate) fn generate_utilities_file(
@@ -35,11 +36,5 @@ pub(crate) fn generate_utilities_file(
         #(#utility_fn_defs)*
     };
 
-    let string = tokens.to_string();
-
-    let _ = std::fs::create_dir(gen_path);
-    let out_path = gen_path.join("utilities.rs");
-    std::fs::write(&out_path, string).expect("failed to write central extension file");
-
-    out_files.push(out_path);
+    write_formatted_if_needed(tokens, gen_path, "utilities.rs", out_files);
 }

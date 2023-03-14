@@ -7,11 +7,10 @@
 use std::path::Path;
 
 fn main() {
-    let gen_path = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/src/gen/"));
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=../Cargo.lock");
 
-    if gen_path.exists() {
-        std::fs::remove_dir_all(gen_path).unwrap_or_else(|e| panic!("failed to delete dir: {e}"));
-    }
+    let gen_path = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/src/gen/"));
 
     godot_codegen::generate_core_files(gen_path);
 }

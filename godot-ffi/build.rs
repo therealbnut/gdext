@@ -8,12 +8,11 @@ use std::env;
 use std::path::Path;
 
 fn main() {
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=../Cargo.lock");
+
     // For custom path on macOS, iOS, Android etc: see gdnative-sys/build.rs
     let gen_path = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/src/gen/"));
-
-    if gen_path.exists() {
-        std::fs::remove_dir_all(gen_path).unwrap_or_else(|e| panic!("failed to delete dir: {e}"));
-    }
 
     run_bindgen(&gen_path.join("gdextension_interface.rs"));
     godot_codegen::generate_sys_files(gen_path);

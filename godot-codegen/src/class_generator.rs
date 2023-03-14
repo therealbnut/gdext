@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 use crate::api_parser::*;
 use crate::central_generator::{collect_builtin_types, BuiltinTypeInfo};
 use crate::util::{ident, safe_ident, to_pascal_case, to_rust_type};
+use crate::write_formatted::write_formatted_if_needed;
 use crate::{
     special_cases, util, Context, GeneratedBuiltin, GeneratedBuiltinModule, GeneratedClass,
     GeneratedClassModule, ModName, RustTy, TyName,
@@ -43,11 +44,12 @@ pub(crate) fn generate_class_files(
         }
 
         let generated_class = make_class(class, &class_name, ctx);
-        let file_contents = generated_class.tokens.to_string();
-
-        let out_path = gen_path.join(format!("{}.rs", module_name.rust_mod));
-        std::fs::write(&out_path, file_contents).expect("failed to write class file");
-        out_files.push(out_path);
+        write_formatted_if_needed(
+            generated_class.tokens,
+            gen_path,
+            &format!("{}.rs", module_name.rust_mod),
+            out_files,
+        );
 
         modules.push(GeneratedClassModule {
             class_name,
@@ -57,10 +59,8 @@ pub(crate) fn generate_class_files(
         });
     }
 
-    let out_path = gen_path.join("mod.rs");
-    let mod_contents = make_module_file(modules).to_string();
-    std::fs::write(&out_path, mod_contents).expect("failed to write mod.rs file");
-    out_files.push(out_path);
+    let mod_contents = make_module_file(modules);
+    write_formatted_if_needed(mod_contents, gen_path, "mod.rs", out_files);
 }
 
 pub(crate) fn generate_builtin_class_files(
@@ -91,11 +91,12 @@ pub(crate) fn generate_builtin_class_files(
 
         let generated_class =
             make_builtin_class(class, &class_name, &inner_class_name, type_info, ctx);
-        let file_contents = generated_class.tokens.to_string();
-
-        let out_path = gen_path.join(format!("{}.rs", module_name.rust_mod));
-        std::fs::write(&out_path, file_contents).expect("failed to write class file");
-        out_files.push(out_path);
+        write_formatted_if_needed(
+            generated_class.tokens,
+            gen_path,
+            &format!("{}.rs", module_name.rust_mod),
+            out_files,
+        );
 
         modules.push(GeneratedBuiltinModule {
             class_name: inner_class_name,
@@ -103,10 +104,8 @@ pub(crate) fn generate_builtin_class_files(
         });
     }
 
-    let out_path = gen_path.join("mod.rs");
-    let mod_contents = make_builtin_module_file(modules).to_string();
-    std::fs::write(&out_path, mod_contents).expect("failed to write mod.rs file");
-    out_files.push(out_path);
+    let mod_contents = make_builtin_module_file(modules);
+    write_formatted_if_needed(mod_contents, gen_path, "mod.rs", out_files);
 }
 
 fn make_constructor(class: &Class, ctx: &Context) -> TokenStream {
